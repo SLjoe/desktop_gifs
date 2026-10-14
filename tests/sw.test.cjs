@@ -66,7 +66,7 @@ test('selected G-rated IDs get a verified result even when a favorite has no rat
 });
 
 // The worker reports the rating; content.js refuses a GIF that is not G, and
-// posts one whose rating is unknown without retrying it.
+// preserves an unknown rating so transient refusals can still be retried.
 for (const rating of ['PG', 'PG-13', 'R']) {
   test(`${rating}-rated selections are reported with their rating`, async () => {
     const checked = await worker([post(rating)]).check();
@@ -120,13 +120,13 @@ test('tenor.com that the extension may not reach points at its site access', asy
   await assert.rejects(w.handle({ type: 'featured' }), /not allowed to reach tenor\.com/);
 });
 
-const release = (tag) => ({ tag_name: tag, html_url: `https://github.com/rayytor/desktop_gifs/releases/tag/${tag}` });
+const release = (tag) => ({ tag_name: tag, html_url: `https://github.com/SLjoe/desktop_gifs/releases/tag/${tag}` });
 
 test('a newer GitHub release is reported once a day', async () => {
   const w = worker([], 200, { release: release('v0.1.10'), version: '0.1.9' });
   const reply = await w.send({ type: 'update' });
   assert.equal(reply.release.version, '0.1.10');
-  assert.equal(reply.release.url, 'https://github.com/rayytor/desktop_gifs/releases/tag/v0.1.10');
+  assert.equal(reply.release.url, 'https://github.com/SLjoe/desktop_gifs/releases/tag/v0.1.10');
   await w.send({ type: 'update' });
   assert.equal(w.calls.filter((c) => c.url.includes('api.github.com')).length, 1);
   assert.equal(w.calls[0].init.credentials, 'omit');

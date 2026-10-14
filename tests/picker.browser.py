@@ -105,7 +105,7 @@ class PickerTests(unittest.TestCase):
         self.page.keyboard.press('Escape')
 
         self.open_fixture()
-        url = 'https://github.com/rayytor/desktop_gifs/releases/tag/v9.9.9'
+        url = 'https://github.com/SLjoe/desktop_gifs/releases/tag/v9.9.9'
         self.page.evaluate(f"window.release = {{ version: '9.9.9', url: '{url}' }}")
         self.open_picker()
         notice.wait_for(state='visible')
@@ -244,7 +244,7 @@ class PickerTests(unittest.TestCase):
         self.assertEqual(self.page.locator('#modal-box .gcfy-attachment').count(), 1)
         self.assert_modal_open()
 
-    def test_failed_rating_check_still_posts_without_retries(self):
+    def test_failed_rating_check_preserves_unknown_rating_for_retry_recovery(self):
         self.page.evaluate("window.unrated = true; window.checkFailure = 'Tenor returned HTTP 503.'")
         self.page.locator('#modal-box #contenteditable-root').fill('Keep my reply')
         self.open_picker()
@@ -252,6 +252,7 @@ class PickerTests(unittest.TestCase):
         self.page.locator('#modal-box #submit-button button').click()
         self.page.locator('#modal-box .gcfy-attachment').wait_for(state='detached')
         self.assertEqual([a['ratedG'] for a in self.page.evaluate('stats.arms')], [False])
+        self.assertEqual([a['rating'] for a in self.page.evaluate('stats.arms')], [None])
         posts = self.page.evaluate('stats.posts')
         self.assertEqual(len(posts), 1)
         self.assertTrue(posts[0]['text'].startswith('Keep my reply[[gif:'))

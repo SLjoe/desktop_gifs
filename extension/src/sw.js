@@ -17,8 +17,8 @@ const MAX_RESULTS = 50;
 const TENOR_TIMEOUT_MS = 10000;
 // A request that fails to connect is tried once more after this long.
 const NETWORK_RETRY_MS = 1000;
-const RELEASES_API = 'https://api.github.com/repos/rayytor/desktop_gifs/releases/latest';
-const RELEASES_PAGE = 'https://github.com/rayytor/desktop_gifs/releases/';
+const RELEASES_API = 'https://api.github.com/repos/SLjoe/desktop_gifs/releases/latest';
+const RELEASES_PAGE = 'https://github.com/SLjoe/desktop_gifs/releases/';
 const UPDATE_CHECK_MS = 24 * 60 * 60 * 1000;
 
 // url -> { time, value }

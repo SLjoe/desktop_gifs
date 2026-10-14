@@ -669,7 +669,8 @@
     try {
       // A favorite or a result from Tenor's web pages may have no rating yet.
       // A GIF Tenor does not rate G is never sent. One whose rating cannot be
-      // read still is, and YouTube decides; main.js just does not retry it.
+      // read still is, and YouTube decides. Keep unknown distinct from non-G
+      // so a temporary Tenor failure does not disable posting retries.
       let rating = att.gif.contentRating;
       if (rating !== 'G') {
         setChipStatus(att, 'Checking the GIF…');
@@ -690,7 +691,7 @@
         }
         setChipStatus(att, 'Posting…');
       }
-      toMain({ type: 'arm', id: att.gif.id, ratedG: rating === 'G', nonce });
+      toMain({ type: 'arm', id: att.gif.id, rating: rating || null, ratedG: rating === 'G', nonce });
       // Without the page hook the marker would be posted as plain text, so
       // nothing is typed into the box until the hook has answered.
       const armed = await Promise.race([armedPromise, sleep(ARM_TIMEOUT_MS).then(() => false)]);
@@ -721,7 +722,9 @@
       // Failed or never sent: take the marker back out of the box.
       toMain({ type: 'disarm', nonce });
       if (editor.isConnected) removeMarker(editor, marker);
-      setChipStatus(att, (result && result.error) || 'The GIF was not sent. Nothing was posted.', 'error');
+      setChipStatus(att, (result && result.error) || (seen
+        ? 'YouTube has not confirmed this GIF comment. Check the comments before trying again.'
+        : 'The GIF was not sent. Nothing was posted.'), 'error');
     } finally {
       fromMain.delete(nonce);
       att.posting = false;

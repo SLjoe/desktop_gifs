@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Desktop GIFs",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Post Tenor GIFs in YouTube comments and replies from desktop.",
   "minimum_chrome_version": "121",
   "browser_specific_settings": {

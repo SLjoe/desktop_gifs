@@ -44,7 +44,11 @@ function hook(reply = { actionResult: { status: 'STATUS_SUCCEEDED' } }, status =
   if (!preload) load();
   return {
     window, response, responses, requests, messages, warnings, listeners, document, load,
-    arm: (rated = false) => onMessage({ source: window, origin, data: { gcfy: 'to-main', type: 'arm', id, nonce, ratedG: rated } }),
+    arm: (rated = false) => onMessage({ source: window, origin, data: {
+      gcfy: 'to-main', type: 'arm', id, nonce,
+      ...(typeof rated === 'boolean' ? { ratedG: rated } : { rating: rated }),
+    } }),
+    disarm: () => onMessage({ source: window, origin, data: { gcfy: 'to-main', type: 'disarm', nonce } }),
     result: () => messages.findLast((message) => message.type === 'result'),
     send: (text = `hello ${marker}`, url = create) => window.fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -87,25 +91,25 @@ test('HTTP 200 showErrorAction keeps the actual YouTube explanation', async () =
   assert.doesNotMatch(h.result().error, /different one|rates G/);
 });
 
-test('HTTP 200 showErrorAction without text says the GIF itself was not taken, without a retry', async () => {
+test('HTTP 200 showErrorAction without text does not invent a cause or retry', async () => {
   const h = hook({ actions: [{ showErrorAction: {} }] });
   h.arm(true);
   await h.send();
   assert.equal(h.requests.length, 1);
   assert.equal(h.result().ok, false);
-  assert.match(h.result().error, /does not accept this GIF\. Try a different one/);
+  assert.match(h.result().error, /without an explanation/);
+  assert.doesNotMatch(h.result().error, /does not accept this GIF|account or network/);
 });
 
-test('INVALID_ARGUMENT for a GIF of unknown rating names both causes and is not retried', async () => {
+test('an unknown rating still recovers from a transient INVALID_ARGUMENT refusal', async () => {
   const h = hook(invalid, 400, success);
   h.arm(false);
   await h.send();
-  assert.equal(h.requests.length, 1);
-  assert.equal(h.result().ok, false);
-  assert.match(h.result().error, /Either Tenor does not rate the GIF G, or YouTube is not taking GIF comments from desktop/);
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.result().ok, true);
 });
 
-test('INVALID_ARGUMENT for a G-rated GIF is retried, then blamed on YouTube, not the GIF', async () => {
+test('persistent INVALID_ARGUMENT reports the actual attempts without inventing an account or network block', async () => {
   const h = hook(invalid, 400);
   h.arm(true);
   const returned = await h.send();
@@ -114,9 +118,53 @@ test('INVALID_ARGUMENT for a G-rated GIF is retried, then blamed on YouTube, not
   for (const request of h.requests) assert.equal((await request.json()).tenorId, id);
   assert.deepEqual(h.messages.filter((m) => m.type === 'retrying').map((m) => [m.attempt, m.tries]), Array.from({ length: 11 }, (_, i) => [i + 2, 12]));
   assert.equal(h.result().ok, false);
-  assert.match(h.result().error, /not taking GIF comments from desktop .* \(tried 12 times\)\. The GIF is not the cause/);
+  assert.match(h.result().error, /HTTP 400, INVALID_ARGUMENT\) after 12 attempts/);
+  assert.doesNotMatch(h.result().error, /account or network|GIF is not the cause/);
   assert.doesNotMatch(h.result().error, /different one/);
   assert.equal(JSON.parse(h.warnings[0][1]).tries, 12);
+});
+
+test('an explicit unknown rating gets the same bounded retries and stays unknown in diagnostics', async () => {
+  const h = hook(invalid, 400);
+  h.arm(null);
+  await h.send();
+  assert.equal(h.requests.length, 12);
+  assert.match(h.result().error, /after 12 attempts/);
+  assert.equal(JSON.parse(h.warnings[0][1]).rating, null);
+});
+
+test('a known non-G rating never reaches YouTube even if armed directly', async () => {
+  const h = hook();
+  h.arm('PG');
+  await assert.rejects(h.send(), /Non-G GIF comment blocked/);
+  assert.equal(h.requests.length, 0);
+  assert.match(h.result().error, /rated PG/);
+});
+
+test('disarming a pending retry stops later sends and reports only the attempts made', async () => {
+  const h = hook(invalid, 400, success);
+  h.arm(true);
+  const postMessage = h.window.postMessage;
+  h.window.postMessage = (message) => {
+    postMessage(message);
+    if (message.type === 'retrying') h.disarm();
+  };
+  await h.send();
+  assert.equal(h.requests.length, 1);
+  assert.match(h.result().error, /after 1 attempt\./);
+  assert.equal(JSON.parse(h.warnings[0][1]).tries, 1);
+});
+
+test('a lost response is uncertain and never retried, even when the GIF is rated G', async () => {
+  const failing = hook(undefined, 200, undefined, 200, true);
+  let sends = 0;
+  failing.window.fetch = async () => { sends++; throw new TypeError('Failed to fetch'); };
+  failing.load();
+  failing.arm('G');
+  await assert.rejects(failing.send(), /Failed to fetch/);
+  assert.equal(sends, 1);
+  assert.match(failing.result().error, /Check the comments before trying again/);
+  assert.doesNotMatch(failing.result().error, /Nothing was posted/);
 });
 
 test('a G-rated GIF blocked once and then accepted is posted on the second try', async () => {

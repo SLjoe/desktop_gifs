@@ -4,16 +4,18 @@
 
 <h1 align="center">Desktop GIFs</h1>
 
+This is SLjoe's maintenance fork of [rayytor/desktop_gifs](https://github.com/rayytor/desktop_gifs), licensed under GPL-3.0. Version 0.1.8 includes upstream 0.1.7's bounded retry recovery plus fixes for unknown Tenor ratings, inaccurate refusal messages, and ambiguous network failures. Update checks and downloads use this fork.
+
 <p align="center">
   <strong>Post GIFs in YouTube comments and replies from a desktop browser.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/rayytor/desktop_gifs/releases/latest"><img src="https://img.shields.io/github/manifest-json/v/rayytor/desktop_gifs?filename=extension%2Fmanifest.json&label=version&color=ff0033" alt="Version"></a>
+  <a href="https://github.com/SLjoe/desktop_gifs/releases/latest"><img src="https://img.shields.io/github/manifest-json/v/SLjoe/desktop_gifs?filename=extension%2Fmanifest.json&label=version&color=ff0033" alt="Version"></a>
   <img src="https://img.shields.io/badge/Chrome-121%2B-4285F4?logo=googlechrome&logoColor=white" alt="Chrome 121 or newer">
   <img src="https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white" alt="Firefox 140 or newer">
   <img src="https://img.shields.io/badge/Manifest-V3-34A853" alt="Manifest V3">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/rayytor/desktop_gifs" alt="License: GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/SLjoe/desktop_gifs" alt="License: GPL-3.0"></a>
 </p>
 
 <p align="center">
@@ -45,16 +47,16 @@ YouTube's mobile app can attach a GIF to a comment; the desktop site has no butt
 
 ## Install
 
-Desktop GIFs is not on the Chrome Web Store or addons.mozilla.org yet, so it is loaded from a ZIP. There is one for each browser on the [latest release](https://github.com/rayytor/desktop_gifs/releases/latest).
+Desktop GIFs is not on the Chrome Web Store or addons.mozilla.org yet, so it is loaded from a ZIP. There is one for each browser on the [latest release](https://github.com/SLjoe/desktop_gifs/releases/latest).
 
 <p>
-  <a href="https://github.com/rayytor/desktop_gifs/releases/latest/download/desktop-gifs-chromium.zip"><img src="https://img.shields.io/badge/Download-Chrome%20%C2%B7%20Edge%20%C2%B7%20Brave-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download for Chrome, Edge and Brave"></a>
-  <a href="https://github.com/rayytor/desktop_gifs/releases/latest/download/desktop-gifs-firefox.zip"><img src="https://img.shields.io/badge/Download-Firefox-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Download for Firefox"></a>
+  <a href="https://github.com/SLjoe/desktop_gifs/releases/latest/download/desktop-gifs-chromium.zip"><img src="https://img.shields.io/badge/Download-Chrome%20%C2%B7%20Edge%20%C2%B7%20Brave-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download for Chrome, Edge and Brave"></a>
+  <a href="https://github.com/SLjoe/desktop_gifs/releases/latest/download/desktop-gifs-firefox.zip"><img src="https://img.shields.io/badge/Download-Firefox-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Download for Firefox"></a>
 </p>
 
 ### Chrome, Edge, Brave
 
-1. Download [`desktop-gifs-chromium.zip`](https://github.com/rayytor/desktop_gifs/releases/latest/download/desktop-gifs-chromium.zip) and unzip it.
+1. Download [`desktop-gifs-chromium.zip`](https://github.com/SLjoe/desktop_gifs/releases/latest/download/desktop-gifs-chromium.zip) and unzip it.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and choose the unzipped folder, the one that has `manifest.json` directly inside it.
 
@@ -64,7 +66,7 @@ Only Chrome is tested. Edge, Brave and other Chromium browsers should work the s
 
 ### Firefox
 
-1. Download [`desktop-gifs-firefox.zip`](https://github.com/rayytor/desktop_gifs/releases/latest/download/desktop-gifs-firefox.zip). There is no need to unzip it.
+1. Download [`desktop-gifs-firefox.zip`](https://github.com/SLjoe/desktop_gifs/releases/latest/download/desktop-gifs-firefox.zip). There is no need to unzip it.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click **Load Temporary Add-on…** and choose the ZIP.
 
@@ -117,10 +119,10 @@ To keep a GIF, point at it and click the star in its corner. The **★** button 
 | "The page hook is not running" or "The extension was reloaded" | Refresh the YouTube tab. |
 | "The GIF was not sent" | YouTube did not send the comment. Press its Comment button again. |
 | The post fails | Nothing is published, and your text and the GIF stay in the box. Try again. |
-| "YouTube is not taking GIF comments from desktop for your account or network right now" | Since 14 October 2026 YouTube turns down many GIF comments sent from desktop, seemingly at random. The extension already tried up to twelve times. The GIF is not the cause, so picking another one will not help. Your text and the GIF stay in the box; try again later. The YouTube phone app may still post GIFs from the same account. |
+| "YouTube rejected this GIF comment (HTTP 400, INVALID_ARGUMENT) after … attempts" | YouTube explicitly refused the request. The extension retried up to twelve times, including when Tenor's rating was unavailable. This response does not identify the cause or establish an account or network block. Your text and GIF stay in the box; try again later. |
 | "YouTube turned it down. Trying again…" | YouTube blocked the comment and the extension is retrying on its own. Wait for it to finish; there is no need to click again. |
-| "Either Tenor does not rate the GIF G, or YouTube is not taking GIF comments" | Tenor could not be asked for the GIF's rating, so the extension does not know which one it is. Try a GIF from the picker's search results: those are rated G. |
-| "YouTube does not accept this GIF" | YouTube looked the GIF up and will not take it. Pick a different GIF. |
+| "YouTube refused this GIF comment without an explanation" | YouTube returned an error action without a reason. The extension cannot tell whether the GIF or another restriction caused the refusal. It does not retry this response automatically. |
+| "The connection ended before YouTube confirmed this GIF comment" | The request may have reached YouTube. Check the comments before trying again; ambiguous outcomes are never retried automatically. |
 | "YouTube only takes GIFs that Tenor rates G" | The GIF has another rating on Tenor. The extension checks a pasted link when you pick it, and a favorite or a GIF without a rating just before posting. Pick a different GIF. |
 | "Checking the GIF…" | The GIF was picked without a rating, so the extension asks Tenor for it before posting. This takes at most five seconds; if Tenor does not answer, the comment is posted anyway. |
 | "YouTube rejected this GIF comment" | YouTube refused the comment for another reason. Its own explanation, if it gave one, follows the HTTP status. Nothing was posted. |
@@ -138,7 +140,7 @@ If posting keeps failing, open the browser's developer tools and look for **Desk
 
 - **Unofficial.** This project is not affiliated with YouTube, Google or Tenor. It sends a field that YouTube's desktop site does not use itself, so it can stop working whenever YouTube changes something, and using it is at your own risk under YouTube's Terms of Service.
 - **Tenor only.** YouTube's GIF comments take Tenor GIFs, so a GIF file from your computer cannot be posted.
-- **YouTube turns many tries down.** Since 14 October 2026 YouTube refuses many GIF comments sent from desktop, seemingly at random: the very same comment, sent again, often goes through. When it blocks a G-rated GIF, the extension tries up to twelve times in about half a minute, then stops, so posting can take a while. A blocked try posts nothing, so a retry never posts twice. Some people also report GIF comments posted from desktop being removed a few seconds later.
+- **YouTube turns many tries down.** Since 14 October 2026 users have reported intermittent desktop GIF refusals. An explicit HTTP 400 `INVALID_ARGUMENT` refusal gets up to twelve attempts with about 27 seconds of delays, plus network time. GIFs whose rating could not be checked get the same retries; known non-G GIFs are not sent. Success, unreadable responses, network failures and other refusals are not retried automatically. Some people also report GIF comments being removed after YouTube initially accepts them; an accepted response does not guarantee the comment will remain visible.
 - **G-rated GIFs only.** YouTube turns down every GIF that Tenor does not rate G, so the picker shows only those, and a pasted link to any other GIF is not offered.
 - **Search depends on Tenor's website.** Tenor closed its public API in June 2026. Search and ratings come from the API that tenor.com itself uses, with the key its pages carry, and fall back to the results in Tenor's web pages, which have no ratings. Either can break when Tenor changes its site.
 - **GIFs only.** Stickers and still images are left out of the results.

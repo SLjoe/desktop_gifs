@@ -45,8 +45,10 @@
   // nothing, so trying again cannot post twice.
   const RETRY_DELAYS_MS = [1000, 1500, 2000, 2000, 2500, 2500, 3000, 3000, 3000, 3000, 3000];
 
-  // nonce -> { id, ratedG, expires }
+  // nonce -> { id, rating, expires }. null means Tenor could not be checked;
+  // it is not evidence that the GIF has a non-G rating.
   const armed = new Map();
+  const active = new Map();
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const toContent = (msg) => window.postMessage({ gcfy: 'to-content', ...msg }, location.origin);
@@ -57,10 +59,13 @@
     if (!msg || msg.gcfy !== 'to-main') return;
     if (msg.type === 'arm' && /^\d{1,20}$/.test(msg.id) && /^[a-z0-9]{8,32}$/.test(msg.nonce)) {
       if (!hook.live) { toContent({ type: 'refused', nonce: msg.nonce }); return; }
-      armed.set(msg.nonce, { id: msg.id, ratedG: msg.ratedG === true, expires: Date.now() + ARM_TTL_MS });
+      const rating = typeof msg.rating === 'string' && msg.rating ? msg.rating : msg.ratedG === true ? 'G' : null;
+      armed.set(msg.nonce, { id: msg.id, rating, expires: Date.now() + ARM_TTL_MS });
       toContent({ type: 'armed', nonce: msg.nonce });
     } else if (msg.type === 'disarm') {
       armed.delete(msg.nonce);
+      const pending = active.get(msg.nonce);
+      if (pending) pending.cancelled = true;
     }
   }
   window.addEventListener('message', onMessage);
@@ -129,7 +134,13 @@
       toContent({ type: 'result', nonce, ok: false, error: 'This box cannot take a GIF, or the request expired. Nothing was posted.' });
       throw new TypeError('GIF comment marker blocked');
     }
+    if (entry.rating && entry.rating !== 'G') {
+      toContent({ type: 'result', nonce, ok: false, error: `YouTube only takes GIFs that Tenor rates G. This one is rated ${entry.rating}. Nothing was posted.` });
+      throw new TypeError('Non-G GIF comment blocked');
+    }
 
+    const pending = { cancelled: false };
+    active.set(nonce, pending);
     toContent({ type: 'seen', nonce });
     if (ownText) body.commentText = ownText;
     else delete body.commentText;
@@ -151,26 +162,30 @@
       try {
         response = await send();
       } catch (e) {
-        toContent({ type: 'result', nonce, ok: false, error: 'The request could not be sent. Nothing was posted.' });
+        active.delete(nonce);
+        // A lost response does not establish whether the server published it.
+        // Never retry an ambiguous outcome automatically.
+        toContent({ type: 'result', nonce, ok: false, error: 'The connection ended before YouTube confirmed this GIF comment. Check the comments before trying again.' });
         throw e;
       }
       verdict = await judge(response);
-      // A reply with a GIF that is not rated G is blocked the same way, and
-      // every time, so only a G one is worth another try.
-      if (verdict.kind !== 'blocked' || !entry.ratedG || attempt === tries) break;
+      // Unknown ratings may be G: a failed Tenor lookup must not disable the
+      // recovery path. Known non-G ratings were stopped before sending.
+      if (verdict.kind !== 'blocked' || pending.cancelled || attempt === tries) break;
       toContent({ type: 'retrying', nonce, attempt: attempt + 1, tries });
       await sleep(RETRY_DELAYS_MS[attempt - 1]);
+      if (pending.cancelled) break;
     }
+    active.delete(nonce);
 
     const detail = `HTTP ${verdict.httpStatus}${verdict.apiStatus ? `, ${verdict.apiStatus}` : ''}`;
     const said = !verdict.message ? '' : /[.!?]$/.test(verdict.message) ? ` ${verdict.message}` : ` ${verdict.message}.`;
     const error = verdict.kind === 'posted' ? null
       : verdict.kind === 'gif' ? (verdict.message
         ? `YouTube turned this GIF comment down:${said} Nothing was posted.`
-        : 'YouTube does not accept this GIF. Try a different one. Nothing was posted.')
-      : verdict.kind === 'blocked' ? (entry.ratedG
-        ? `YouTube is not taking GIF comments from desktop for your account or network right now (tried ${tries} times). The GIF is not the cause, so another one will not help. Try again later. Nothing was posted.`
-        : 'YouTube turned this GIF comment down. Either Tenor does not rate the GIF G, or YouTube is not taking GIF comments from desktop for your account or network right now. Nothing was posted.')
+        : 'YouTube refused this GIF comment without an explanation. Try again later or choose another GIF. Nothing was posted.')
+      : verdict.kind === 'blocked'
+        ? `YouTube rejected this GIF comment (${detail}) after ${attempt} ${attempt === 1 ? 'attempt' : 'attempts'}. Try again later. Nothing was posted.`
       : verdict.kind === 'rejected' ? `YouTube rejected this GIF comment (${detail}).${said} Nothing was posted.`
       : `YouTube did not confirm this GIF comment (${detail}).${said} Check the comments before trying again.`;
     if (verdict.kind !== 'posted') {
@@ -181,7 +196,8 @@
       console.warn('Desktop GIFs: comment not confirmed', JSON.stringify({
         endpoint: /create_comment_reply(\?|$)/.test(url) ? 'create_comment_reply' : 'create_comment',
         tenorId: id,
-        ratedG: entry.ratedG,
+        ratedG: entry.rating === 'G',
+        rating: entry.rating,
         hasText: !!ownText,
         kind: verdict.kind,
         tries: attempt,
@@ -221,11 +237,10 @@
   // Reads YouTube's answer as one kind:
   //   posted     the comment is up
   //   gif        HTTP 200 with a showErrorAction where the actionResult would
-  //              be: YouTube looked the GIF up and will not take it (unknown
-  //              ID, or not rated G)
-  //   blocked    HTTP 400 INVALID_ARGUMENT: YouTube accepted the GIF but
-  //              refuses the comment. The page's own request was valid before
-  //              the GIF was added, so this is about GIF comments.
+  //              be: refused, but a missing explanation proves no cause.
+  //   blocked    HTTP 400 INVALID_ARGUMENT: an explicit refusal that can be
+  //              transient. It does not establish an account/network block,
+  //              or prove that the GIF itself is valid or invalid.
   //   rejected   another refusal; nothing was posted
   //   uncertain  no readable confirmation either way; the comment may be up
   // with YouTube's own explanation, if it gave one.
