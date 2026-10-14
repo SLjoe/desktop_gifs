@@ -38,11 +38,9 @@
   const MARKER = /\[\[gif:(\d{1,20}):([a-z0-9]{8,32})\]\]/;
   const ARM_TTL_MS = 3 * 60 * 1000;
   // Since 14 October 2026 YouTube turns down many GIF comments from desktop
-  // with HTTP 400, after it has accepted the GIF itself. It looks random: the
-  // very same request, sent again, was refused about two times in three and
-  // sometimes six times in a row before it went through. So a blocked one gets
-  // up to twelve tries in about half a minute. A blocked request posts
-  // nothing, so trying again cannot post twice.
+  // with HTTP 400 INVALID_ARGUMENT. Upstream observed the very same request
+  // being refused and then accepted. Only this explicit refusal gets up to
+  // twelve attempts; an ambiguous response never triggers another send.
   const RETRY_DELAYS_MS = [1000, 1500, 2000, 2000, 2500, 2500, 3000, 3000, 3000, 3000, 3000];
 
   // nonce -> { id, rating, expires }. null means Tenor could not be checked;

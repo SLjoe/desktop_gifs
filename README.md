@@ -118,7 +118,7 @@ To keep a GIF, point at it and click the star in its corner. The **★** button 
 | "Not ready in this tab yet" | The tab was open before the install and the extension is still checking that it can post from it. Try again in a few seconds, or refresh the tab. |
 | "The page hook is not running" or "The extension was reloaded" | Refresh the YouTube tab. |
 | "The GIF was not sent" | YouTube did not send the comment. Press its Comment button again. |
-| The post fails | Nothing is published, and your text and the GIF stay in the box. Try again. |
+| The post fails | Your GIF stays attached. An explicit refusal means nothing was posted; if confirmation was lost, check the comments before trying again. |
 | "YouTube rejected this GIF comment (HTTP 400, INVALID_ARGUMENT) after … attempts" | YouTube explicitly refused the request. The extension retried up to twelve times, including when Tenor's rating was unavailable. This response does not identify the cause or establish an account or network block. Your text and GIF stay in the box; try again later. |
 | "YouTube turned it down. Trying again…" | YouTube blocked the comment and the extension is retrying on its own. Wait for it to finish; there is no need to click again. |
 | "YouTube refused this GIF comment without an explanation" | YouTube returned an error action without a reason. The extension cannot tell whether the GIF or another restriction caused the refusal. It does not retry this response automatically. |
